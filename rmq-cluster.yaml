@@ -1,0 +1,88 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: rmq-cluster-node
+spec:
+  serviceName: "rmq-cluster-svc"
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        name: rmq-cluster-node
+        app: rmq
+    spec:
+      hostNetwork: False
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: rmq-cluster-node
+        image: 127.0.0.1:35000/rmq:v0.0.1
+        imagePullPolicy: Always
+        env:
+        - name: RMQSVC
+          value: "rmq-cluster-svc"
+        - name: RMQNODE
+          value: "rmq-cluster-node"
+        - name: CLUSTERNAME
+          value: "rmqcluster"
+        - name: PORT
+          value: "9876"
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - containerPort: 8080
+        - containerPort: 9876
+        - containerPort: 10909
+        - containerPort: 10911
+#        volumeMounts:
+#        - name: redisdata
+#          mountPath: /home/redis
+        securityContext:
+          capabilities: {}
+          privileged: true
+#      volumes:
+#      - name: redisdata
+#        hostPath:
+#          path: /redisdb  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rmq-cluster-svc
+  labels:
+    name: rmq-cluster-svc
+    app: rmq
+spec:
+  ports:
+  - port: 9876
+    targetPort: 9876
+  clusterIP: None
+  selector:
+    name: rmq-cluster-node
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rmq-cluster-svc-np
+  labels:
+    name: rmq-cluster-svc-np
+    app: rmq
+spec:
+  ports:
+  - port: 9876
+    name: rmq
+    targetPort: 9876
+    nodePort: 39876
+  - port: 8080
+    name: rmqconsole
+    targetPort: 8080
+    nodePort: 38080
+  type: NodePort
+  selector:
+    name: rmq-cluster-node 
